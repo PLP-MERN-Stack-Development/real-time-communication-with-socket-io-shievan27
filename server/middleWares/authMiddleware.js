@@ -1,0 +1,27 @@
+// middleware/auth.js
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
+
+const SECRET = process.env.JWT_SECRET;
+const EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
+export const signToken = (payload) => {
+  return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN });
+};
+
+export const verifyToken = (token) => {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, SECRET, (err, decoded) => {
+      if (err) return reject(err);
+      resolve(decoded);
+    });
+  });
+};
+
+// For socket middleware we want to both validate and return payload
+export const verifySocketToken = async (token) => {
+  const decoded = await verifyToken(token);
+  // decoded should include { id, username, iat, exp } — depends on your signing
+  return decoded;
+};

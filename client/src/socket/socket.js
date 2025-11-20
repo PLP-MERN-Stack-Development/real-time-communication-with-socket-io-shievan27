@@ -23,12 +23,15 @@ export const useSocket = () => {
   const [typingUsers, setTypingUsers] = useState([]);
 
   // Connect to socket server
-  const connect = (username) => {
-    socket.connect();
-    if (username) {
-      socket.emit('user_join', username);
-    }
-  };
+  const connect = (username, room) => {
+      if (!socket.connected) {
+        socket.connect();
+      }
+      if (username) {
+        socket.emit('user_join', { username, room });
+      }
+    };
+
 
   // Disconnect from socket server
   const disconnect = () => {
@@ -36,9 +39,14 @@ export const useSocket = () => {
   };
 
   // Send a message
-  const sendMessage = (message) => {
-    socket.emit('send_message', { message });
+  const sendMessage = (message, room) => {
+    console.log("📤 Sending message:", { message, room });
+    // ensure we send a plain string as 'message'
+    socket.emit("send_message", { message, room }, (ack) => {
+      console.log("Message status:", ack?.status);
+    });
   };
+
 
   // Send a private message
   const sendPrivateMessage = (to, message) => {
@@ -49,6 +57,21 @@ export const useSocket = () => {
   const setTyping = (isTyping) => {
     socket.emit('typing', isTyping);
   };
+
+  // Join a chatroom
+    const joinRoom = (username, room) => {
+      if (!socket.connected) {
+        socket.connect();
+      }
+      socket.emit("join_room", { username, room });
+    };
+
+
+    // Leave a chatroom
+    const leaveRoom = (username, room) => {
+      socket.emit("leave_room", { username, room });
+    };
+ 
 
   // Socket event listeners
   useEffect(() => {
@@ -66,6 +89,7 @@ export const useSocket = () => {
       setLastMessage(message);
       setMessages((prev) => [...prev, message]);
     };
+    
 
     const onPrivateMessage = (message) => {
       setLastMessage(message);
@@ -78,35 +102,39 @@ export const useSocket = () => {
     };
 
     const onUserJoined = (user) => {
-      // You could add a system message here
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
           system: true,
           message: `${user.username} joined the chat`,
+          room: user.room, // ✅ Add this line
           timestamp: new Date().toISOString(),
         },
       ]);
     };
 
     const onUserLeft = (user) => {
-      // You could add a system message here
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
           system: true,
           message: `${user.username} left the chat`,
+          room: user.room, // ✅ Add this line
           timestamp: new Date().toISOString(),
         },
       ]);
     };
 
+
     // Typing events
     const onTypingUsers = (users) => {
       setTypingUsers(users);
     };
+
+    
+
 
     // Register event listeners
     socket.on('connect', onConnect);
@@ -117,6 +145,8 @@ export const useSocket = () => {
     socket.on('user_joined', onUserJoined);
     socket.on('user_left', onUserLeft);
     socket.on('typing_users', onTypingUsers);
+    //socket.on('joinRoom', joinRoom);
+    //socket.on('leaveRoom', leaveRoom);
 
     // Clean up event listeners
     return () => {
@@ -128,6 +158,8 @@ export const useSocket = () => {
       socket.off('user_joined', onUserJoined);
       socket.off('user_left', onUserLeft);
       socket.off('typing_users', onTypingUsers);
+      //socket.off('joinRoom', joinRoom);
+      //socket.off('leaveRoom', leaveRoom);
     };
   }, []);
 
@@ -140,6 +172,8 @@ export const useSocket = () => {
     typingUsers,
     connect,
     disconnect,
+    joinRoom,
+    leaveRoom,
     sendMessage,
     sendPrivateMessage,
     setTyping,
